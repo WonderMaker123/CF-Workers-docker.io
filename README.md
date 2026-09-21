@@ -19,7 +19,7 @@
 ## 🛠️ 方式二：手动部署指南
 
 ### 1. 准备工作
-- 拥有一个 [Cloudflare](https://dash.cloudflare.com/) 账号。
+- 拥有一个 Cloudflare 账号。
 - 一个托管在 Cloudflare 上的**自定义域名**。
 
 ### 2. 创建并部署 Worker
@@ -58,11 +58,11 @@
 在原本的镜像名称前面加上你的域名即可：
 
 ```bash
-# 官方常用镜像（如 nginx、ubuntu 等，需加上 library/ 前缀）
+# 官方常用镜像（如 nginx、alpine 等，需加上 library/ 前缀）
 docker pull docker.yourdomain.com/library/nginx:latest
 
-# 第三方用户镜像
-docker pull docker.yourdomain.com/stilleshan/frpc:latest
+# 第三方镜像
+docker pull docker.yourdomain.com/username/imagename:latest
 ```
 
 ---
