@@ -26,8 +26,30 @@
 
 ## 🚀 部署方式
 
-- **Workers** 部署：复制 [_worker.js](https://github.com/cmliu/CF-Workers-docker.io/blob/main/_worker.js) 代码，`保存并部署`即可
-- **Pages** 部署：`Fork` 后 `连接GitHub` 一键部署即可
+- **Workers 部署（推荐）**：
+  1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)，进入 **Workers & Pages** -> **Create application** -> **Create Worker**。
+  2. 点击 **Deploy**，然后进入 **Edit code**，将本项目中的 [_worker.js](https://github.com/cmliu/CF-Workers-docker.io/blob/main/_worker.js) 内容全部替换粘贴进去，点击右上角 **Deploy**。
+  3. 回到该 Worker 的管理页面，进入 **Settings** -> **Variables and Secrets**，按需添加环境变量（详见下文配置）。
+  4. 进入 **Settings** -> **Domains & Routes** -> **Add** -> **Custom Domain**，绑定一个你自己的独立二级域名（如 `docker.yourdomain.com`）。
+- **Pages 部署**：`Fork` 本仓库后 `连接 GitHub` 选择 Pages 一键部署即可。
+
+## 🛡️ 个人自用安全防护与环境变量配置
+
+为了规避 Netcraft、Google Safe Browsing 扫描导致的**钓鱼标记红屏、Cloudflare 封号警告**，并解决 Docker 官方**匿名拉取配额限制**，请在 Cloudflare 环境变量中添加如下设置：
+
+### 1. 必选/推荐环境变量（在 Worker 的 Settings -> Variables 添加）
+
+| 变量名 | 推荐值 | 作用说明 |
+|:---|:---|:---|
+| **`USERNAME`** | `你的DockerHub用户名` | 配置你的 Docker Hub 个人账号，解除 IP 共享的 100 次/6小时匿名限额。 |
+| **`PASSWORD`** | `dckr_pat_xxxx` | 你的 Docker Hub 密码或访问令牌 (PAT)。 |
+| **`REGION_WHITELIST`** | `CN` | **防境外扫描核心**：仅允许中国 IP 访问。国外所有 Netcraft、安全扫描器访问均只显示 Nginx 默认欢迎页，无法探测到任何 Docker 接口。 |
+| **`UA_WHITELIST_REGEX`** | `^(docker\|containerd\|podman\|nerdctl\|curl\|synology)` | **客户端白名单核心**：仅放行 Docker 引擎拉取请求，浏览器访问一律伪装为 Nginx 页面。 |
+| **`URL`** | `nginx` | 主页默认伪装为 Nginx 默认欢迎页。 |
+
+> 💡 **提示**：以上变量也可以不走环境变量，直接在 `_worker.js` 开头的变量中修改默认值。
+
+---
 
 ## ⚙️ 如何使用？ [视频教程](https://www.youtube.com/watch?v=l2jwq9CagNQ)
 
@@ -150,9 +172,15 @@ docker  pull nginx:1.21
 
 | 变量名 | 示例 | 必填 | 备注 |
 |--|--|--|--|
+| USERNAME | `your_dockerhub_username` |❌| Docker Hub 用户名（建议与 PASSWORD 一同配置以提升匿名限制） |
+| PASSWORD | `dckr_pat_xxxx` |❌| Docker Hub 密码或个人访问令牌 (Personal Access Token) |
+| REGION_WHITELIST | `CN` 或 `CN,HK,MO` |❌| **防境外扫描神器**：限制仅中国 IP 访问，境外节点/扫描器一律返回 Nginx 页面 |
+| UA_WHITELIST_REGEX | `^(docker|containerd|podman|nerdctl|curl|synology)` |❌| **个人防扫必备**：仅放行常见容器引擎拉取，所有浏览器/爬虫访问均伪装为 Nginx |
+| IP_WHITELIST_REGEX | `^(1\.2\.3\.4|123\.123\.)` |❌| **高安全性**：限制仅允许指定家庭/服务器公网 IP 地址访问 |
+| PROXY_TOKEN | `my_secret_token_123` |❌| 访问令牌，设置后需在 URL 参数 `?token=xxx` 或请求头 `x-proxy-token` 携带 |
 | URL302 | `https://t.me/CMLiussss` |❌| 主页302跳转 |
 | URL | `https://www.baidu.com/` |❌| 主页伪装(设为`nginx`则伪装为nginx默认页面) |
-| UA | `netcraft` |❌| 支持多元素, 元素之间使用空格或换行作间隔 |
+| UA | `netcraft` |❌| 屏蔽爬虫UA，支持多元素, 元素之间使用空格或换行作间隔 |
 
 # 🛠️ 第三方 DockerHub 镜像服务
 

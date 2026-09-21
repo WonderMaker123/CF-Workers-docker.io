@@ -7,6 +7,21 @@ const auth_url = 'https://auth.docker.io';
 
 let 屏蔽爬虫UA = ['netcraft'];
 
+// Docker Hub 账号凭证变量（可通过环境变量 USERNAME / PASSWORD 或 DOCKER_USERNAME / DOCKER_PASSWORD 设置，也可在此直接填写）
+let hub_username = '';
+let hub_password = '';
+
+// 安全防护配置（个人使用强烈推荐）：
+// 1. 默认首页伪装：未提供 URL 环境变量时，默认展示 Nginx 页面，坚决不展示 Docker 页面，防止被 Netcraft 爬虫探测为钓鱼。
+// 2. UA 白名单：仅允许 docker、containerd、curl 等客户端拉取；开启后爬虫即便使用真实浏览器扫描也会被拦截到 Nginx 伪装页。
+let ua_whitelist_regex = ''; // 例如：'^(docker|containerd|podman|nerdctl|curl|synology)'
+// 3. 访问密钥/Token (可选): 若设置，拉取或访问必须在 URL 带上 ?token=xxx 或在 Header 带有 X-Proxy-Token / Authorization
+let proxy_token = '';
+// 4. IP 白名单 (可选): 例如：'^(1\.2\.3\.4|123\.123\.)'
+let ip_whitelist_regex = '';
+// 5. 地区/国家白名单 (防国外安全扫描神器): 例如：'CN' 或 'CN,HK,MO'
+let region_whitelist = '';
+
 // 根据主机名选择对应的上游地址
 function routeByHosts(host) {
 	// 定义路由表
@@ -421,6 +436,53 @@ export default {
 		if (env.UA) 屏蔽爬虫UA = 屏蔽爬虫UA.concat(await ADD(env.UA));
 		const workers_url = `https://${url.hostname}`;
 
+		const username = env.USERNAME || env.DOCKER_USERNAME || hub_username;
+		const password = env.PASSWORD || env.DOCKER_PASSWORD || hub_password;
+
+		// 个人自用安全规避策略（借鉴 jonssonyan/cf-workers-proxy 白名单与伪装过滤机制）：
+		// 1. 国家/地区白名单校验（如果配置了 REGION_WHITELIST / COUNTRY_WHITELIST）
+		// Cloudflare 自动提供客户端所在国家/地区代码（如 CN、HK、US）
+		const allowedRegionsStr = env.REGION_WHITELIST || env.COUNTRY_WHITELIST || region_whitelist;
+		if (allowedRegionsStr) {
+			const clientCountry = (request.cf && request.cf.country) || request.headers.get('cf-ipcountry') || '';
+			const allowedRegions = allowedRegionsStr.split(',').map(r => r.trim().toUpperCase());
+			if (!allowedRegions.includes(clientCountry.toUpperCase())) {
+				return new Response(await nginx(), {
+					headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+				});
+			}
+		}
+
+		// 2. IP 白名单校验（如果配置了 IP_WHITELIST_REGEX）
+		const ipWhitelistRegex = env.IP_WHITELIST_REGEX || ip_whitelist_regex;
+		const clientIp = request.headers.get('cf-connecting-ip') || '';
+		if (ipWhitelistRegex && !new RegExp(ipWhitelistRegex, 'i').test(clientIp)) {
+			return new Response(await nginx(), {
+				headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+			});
+		}
+
+		// 3. UA 白名单校验（如果配置了 UA_WHITELIST_REGEX）
+		// 个人拉取 Docker 镜像时，客户端 User-Agent 通常包含 docker/、containerd/、synology、curl 等。
+		const uaWhitelistRegex = env.UA_WHITELIST_REGEX || ua_whitelist_regex;
+		if (uaWhitelistRegex && !new RegExp(uaWhitelistRegex, 'i').test(userAgent)) {
+			return new Response(await nginx(), {
+				headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+			});
+		}
+
+		// 4. 访问 Token 密钥防护（如果配置了 PROXY_TOKEN / TOKEN）
+		const requiredToken = env.PROXY_TOKEN || env.TOKEN || proxy_token;
+		if (requiredToken) {
+			const queryToken = url.searchParams.get('token');
+			const headerToken = request.headers.get('x-proxy-token');
+			if (queryToken !== requiredToken && headerToken !== requiredToken) {
+				return new Response(await nginx(), {
+					headers: { 'Content-Type': 'text/html; charset=UTF-8' },
+				});
+			}
+		}
+
 		// 获取请求参数中的 ns
 		const ns = url.searchParams.get('ns');
 		const hostname = url.searchParams.get('hubhost') || url.hostname;
@@ -465,7 +527,15 @@ export default {
 						});
 					} else return fetch(new Request(env.URL, request));
 				} else	{
-					if (fakePage) return new Response(await searchInterface(), {
+					// 个人使用建议默认返回 Nginx 伪装，避免无意暴露 Docker Hub 搜索页被 Netcraft 判定为 Phishing
+					if (fakePage && env.SHOW_DOCKER_PAGE === 'true') {
+						return new Response(await searchInterface(), {
+							headers: {
+								'Content-Type': 'text/html; charset=UTF-8',
+							},
+						});
+					}
+					return new Response(await nginx(), {
 						headers: {
 							'Content-Type': 'text/html; charset=UTF-8',
 						},
@@ -496,16 +566,22 @@ export default {
 
 		// 处理token请求
 		if (url.pathname.includes('/token')) {
+			let token_headers = {
+				'Host': 'auth.docker.io',
+				'User-Agent': getReqHeader("User-Agent"),
+				'Accept': getReqHeader("Accept"),
+				'Accept-Language': getReqHeader("Accept-Language"),
+				'Accept-Encoding': getReqHeader("Accept-Encoding"),
+				'Connection': 'keep-alive',
+				'Cache-Control': 'max-age=0'
+			};
+			if (request.headers.has("Authorization")) {
+				token_headers['Authorization'] = getReqHeader("Authorization");
+			} else if (username && password) {
+				token_headers['Authorization'] = `Basic ${btoa(`${username}:${password}`)}`;
+			}
 			let token_parameter = {
-				headers: {
-					'Host': 'auth.docker.io',
-					'User-Agent': getReqHeader("User-Agent"),
-					'Accept': getReqHeader("Accept"),
-					'Accept-Language': getReqHeader("Accept-Language"),
-					'Accept-Encoding': getReqHeader("Accept-Encoding"),
-					'Connection': 'keep-alive',
-					'Cache-Control': 'max-age=0'
-				}
+				headers: token_headers
 			};
 			let token_url = auth_url + url.pathname + url.search;
 			return fetch(new Request(token_url, request), token_parameter);
@@ -530,24 +606,33 @@ export default {
 		) {
 			// 提取镜像名
 			let repo = '';
-			const v2Match = url.pathname.match(/^\/v2\/(.+?)(?:\/(manifests|blobs|tags)\/)/);
+			const v2Match = url.pathname.match(/^\/v2\/(.+?)\/(?:manifests|blobs|tags)\b/);
 			if (v2Match) {
 				repo = v2Match[1];
 			}
 			if (repo) {
 				const tokenUrl = `${auth_url}/token?service=registry.docker.io&scope=repository:${repo}:pull`;
+				let tokenHeaders = {
+					'User-Agent': getReqHeader("User-Agent"),
+					'Accept': getReqHeader("Accept"),
+					'Accept-Language': getReqHeader("Accept-Language"),
+					'Accept-Encoding': getReqHeader("Accept-Encoding"),
+					'Connection': 'keep-alive',
+					'Cache-Control': 'max-age=0'
+				};
+				if (request.headers.has("Authorization")) {
+					tokenHeaders['Authorization'] = getReqHeader("Authorization");
+				} else if (username && password) {
+					tokenHeaders['Authorization'] = `Basic ${btoa(`${username}:${password}`)}`;
+				}
 				const tokenRes = await fetch(tokenUrl, {
-					headers: {
-						'User-Agent': getReqHeader("User-Agent"),
-						'Accept': getReqHeader("Accept"),
-						'Accept-Language': getReqHeader("Accept-Language"),
-						'Accept-Encoding': getReqHeader("Accept-Encoding"),
-						'Connection': 'keep-alive',
-						'Cache-Control': 'max-age=0'
-					}
+					headers: tokenHeaders
 				});
-				const tokenData = await tokenRes.json();
-				const token = tokenData.token;
+				let token = '';
+				if (tokenRes.ok) {
+					const tokenData = await tokenRes.json();
+					token = tokenData.token || tokenData.access_token || '';
+				}
 				let parameter = {
 					headers: {
 						'Host': hub_host,
@@ -556,11 +641,15 @@ export default {
 						'Accept-Language': getReqHeader("Accept-Language"),
 						'Accept-Encoding': getReqHeader("Accept-Encoding"),
 						'Connection': 'keep-alive',
-						'Cache-Control': 'max-age=0',
-						'Authorization': `Bearer ${token}`
+						'Cache-Control': 'max-age=0'
 					},
 					cacheTtl: 3600
 				};
+				if (token) {
+					parameter.headers['Authorization'] = `Bearer ${token}`;
+				} else if (request.headers.has("Authorization")) {
+					parameter.headers['Authorization'] = getReqHeader("Authorization");
+				}
 				if (request.headers.has("X-Amz-Content-Sha256")) {
 					parameter.headers['X-Amz-Content-Sha256'] = getReqHeader("X-Amz-Content-Sha256");
 				}
