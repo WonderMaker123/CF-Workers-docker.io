@@ -2,41 +2,34 @@
 
 本项目基于 Cloudflare Workers 搭建，帮你解决国内访问和下载 Docker 镜像慢或无法连接的问题。
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/WonderMaker123/CF-Workers-docker.io)
-
 ---
 
-## 🚀 方式一：一键部署到 Cloudflare（小白极简推荐）
+## 🛠️ 部署指南（推荐：极简 3 步网页部署）
 
-点击下方按钮，登录 Cloudflare 账号后授权 GitHub，即可自动克隆并一键部署此 Worker：
+> ⚠️ **说明**：Cloudflare 官方的一键部署按钮经常受 GitHub API 限流影响导致报错 `无法获取存储库内容`。**推荐直接使用官方控制台部署，1 分钟即可完成，最稳妥、不需要任何工具！**
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/WonderMaker123/CF-Workers-docker.io)
+### 第一步：创建 Worker
+1. 登录 [Cloudflare 控制台](https://dash.cloudflare.com/)。
+2. 点击左侧导航栏的 **Workers 和 Pages** -> **创建应用程序** -> 点击 **创建 Worker**。
+3. 随意输入一个名称（例如：`docker-proxy`），直接点击右下角的 **部署**。
 
-> **注意**：一键部署完成后，请按照下方 [绑定自定义域名](#3-绑定自定义域名必须) 绑定你自己的域名（因为官方默认的 `*.workers.dev` 域名在国内无法直连访问）。
+### 第二步：粘贴代码
+1. 部署成功后，点击页面中间的 **编辑代码** 按钮。
+2. 将左侧/中间编辑器原有的内容全部清空。
+3. 打开本项目中的 [`_worker.js`](./_worker.js) 文件，**全选复制全部内容**，粘贴进 Cloudflare 编辑器中。
+4. 点击右上角 **部署**（Deploy）即可生效。
 
----
+### 第三步：绑定自定义域名（必须）
+> 💡 Cloudflare 默认提供的 `*.workers.dev` 域名在国内已被阻断，必须绑定自己的域名才能正常拉取镜像。
 
-## 🛠️ 方式二：手动部署指南
-
-### 1. 准备工作
-- 拥有一个 Cloudflare 账号。
-- 一个托管在 Cloudflare 上的**自定义域名**。
-
-### 2. 创建并部署 Worker
-1. 登录 Cloudflare 控制台，点击左侧导航栏的 **Workers 和 Pages** -> **创建应用程序** -> **创建 Worker**。
-2. 随意输入一个名称（如 `my-docker-proxy`），点击右下角 **部署**。
-3. 部署成功后，点击 **编辑代码**：
-   - 清空里面原有的所有代码。
-   - 复制本项目中的 `_worker.js` 文件全部内容，粘贴进去。
-   - 点击右上角 **部署** 即可。
-
-### 3. 绑定自定义域名（必须）
 1. 回到刚刚创建的 Worker 详情页面。
-2. 点击上方的 **设置 (Settings)** -> 找到 **域和路由 (Domains & Routes)**。
+2. 点击顶部的 **设置 (Settings)** -> 找到 **域和路由 (Domains & Routes)**。
 3. 点击 **添加 (Add)** -> 选择 **自定义域 (Custom Domain)**。
-4. 输入你的二级域名（例如：`docker.yourdomain.com`），点击添加，等待解析生效。
+4. 输入你的二级域名（例如：`docker.yourdomain.com`，需已托管在 Cloudflare），点击添加，等待状态变为生效即可。
 
-### 4. （可选）配置环境变量
+---
+
+## ⚙️ （可选）配置环境变量
 如需个性化功能（如绑定账号防频控限制、伪装重定向、开启搜索页等），可在 Cloudflare 页面轻松配置：
 1. 在 Worker 页面点击 **设置 (Settings)** -> **变量和机密 (Variables and Secrets)** -> 点击 **添加**。
 2. 支持的环境变量如下（**全部为选填**，无需改动代码）：
