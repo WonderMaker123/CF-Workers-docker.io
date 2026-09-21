@@ -1,215 +1,100 @@
-[**第三方 DockerHub 镜像服务列表**](https://github.com/cmliu/CF-Workers-docker.io?tab=readme-ov-file#%EF%B8%8F-%E7%AC%AC%E4%B8%89%E6%96%B9-dockerhub-%E9%95%9C%E5%83%8F%E6%9C%8D%E5%8A%A1)
+# 🐳 Docker 镜像加速代理（基于 Cloudflare Workers）
 
-![CF-Workers-docker.io](./img.png)
+本项目基于 Cloudflare Workers 搭建，帮你解决国内访问和下载 Docker 镜像慢或无法连接的问题。
 
-# 🐳 CF-Workers-docker.io：Docker仓库镜像代理工具
-
-这个项目是一个基于 Cloudflare Workers 的 Docker 镜像代理工具。它能够中转对 Docker 官方镜像仓库的请求，解决一些访问限制和加速访问的问题。
-
-> [!CAUTION]
-> **docker.fxxk.dedyn.io 已被GFW污染，需自行部署使用。**
-
-> [!WARNING]
-> 根据 [Cloudflare 协议](https://www.cloudflare.com/zh-cn/terms/) 中，2.2.1 第 (j) use the Services to provide a virtual private network or other similar proxy services.
->
-> 使用本服务可能存在被 Cloudflare 封号的潜在风险，请自行斟酌使用风险。
->
-> 如果你选择了“根据主机名选择对应的上游地址”方式部署，你可能会:
-> 
-> 被 Netcraft 扫描到，收到警告邮件
->
-> 被 Netcraft 同步到 Google Safe Browsing 标记为钓鱼网站
->
-> 被 Netcraft 投诉到 Cloudflare 标记为钓鱼网站, 无法正常 pull 镜像
->
-> 收到律师函
-
-## 🚀 部署方式
-
-- **Workers 部署（推荐）**：
-  1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)，进入 **Workers & Pages** -> **Create application** -> **Create Worker**。
-  2. 点击 **Deploy**，然后进入 **Edit code**，将本项目中的 [_worker.js](https://github.com/cmliu/CF-Workers-docker.io/blob/main/_worker.js) 内容全部替换粘贴进去，点击右上角 **Deploy**。
-  3. 回到该 Worker 的管理页面，进入 **Settings** -> **Variables and Secrets**，按需添加环境变量（详见下文配置）。
-  4. 进入 **Settings** -> **Domains & Routes** -> **Add** -> **Custom Domain**，绑定一个你自己的独立二级域名（如 `docker.yourdomain.com`）。
-- **Pages 部署**：`Fork` 本仓库后 `连接 GitHub` 选择 Pages 一键部署即可。
-
-## 🛡️ 个人自用安全防护与环境变量配置
-
-为了规避 Netcraft、Google Safe Browsing 扫描导致的**钓鱼标记红屏、Cloudflare 封号警告**，并解决 Docker 官方**匿名拉取配额限制**，请在 Cloudflare 环境变量中添加如下设置：
-
-### 1. 必选/推荐环境变量（在 Worker 的 Settings -> Variables 添加）
-
-| 变量名 | 推荐值 | 作用说明 |
-|:---|:---|:---|
-| **`USERNAME`** | `你的DockerHub用户名` | 配置你的 Docker Hub 个人账号，解除 IP 共享的 100 次/6小时匿名限额。 |
-| **`PASSWORD`** | `dckr_pat_xxxx` | 你的 Docker Hub 密码或访问令牌 (PAT)。 |
-| **`REGION_WHITELIST`** | `CN` | **防境外扫描核心（全兼容所有NAS）**：仅允许中国 IP 访问。国外所有 Netcraft、安全扫描器访问均只显示 Nginx 默认欢迎页，无法探测到任何 Docker 接口；同时极空间、绿联、群晖等各种 NAS 设备均无需担心 UA 拦截，直接畅通使用。 |
-| **`URL`** | `nginx` | 主页默认伪装为 Nginx 默认欢迎页。 |
-
-> 💡 **提示**：以上变量也可以不走环境变量，直接在 `_worker.js` 开头的变量中修改默认值。
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/WonderMaker123/CF-Workers-docker.io)
 
 ---
 
-## ⚙️ 如何使用？ [视频教程](https://www.youtube.com/watch?v=l2jwq9CagNQ)
+## 🚀 方式一：一键部署到 Cloudflare（小白极简推荐）
 
-例如您的Workers项目域名为：`docker.fxxk.dedyn.io`；
+点击下方按钮，登录 Cloudflare 账号后授权 GitHub，即可自动克隆并一键部署此 Worker：
 
-### 1.官方镜像路径前面加域名
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/WonderMaker123/CF-Workers-docker.io)
 
-```shell
-docker pull docker.fxxk.dedyn.io/stilleshan/frpc:latest
+> **注意**：一键部署完成后，请按照下方 [绑定自定义域名](#3-绑定自定义域名必须) 绑定你自己的域名（因为官方默认的 `*.workers.dev` 域名在国内无法直连访问）。
+
+---
+
+## 🛠️ 方式二：手动部署指南
+
+### 1. 准备工作
+- 拥有一个 [Cloudflare](https://dash.cloudflare.com/) 账号。
+- 一个托管在 Cloudflare 上的**自定义域名**。
+
+### 2. 创建并部署 Worker
+1. 登录 Cloudflare 控制台，点击左侧导航栏的 **Workers 和 Pages** -> **创建应用程序** -> **创建 Worker**。
+2. 随意输入一个名称（如 `my-docker-proxy`），点击右下角 **部署**。
+3. 部署成功后，点击 **编辑代码**：
+   - 清空里面原有的所有代码。
+   - 复制本项目中的 `_worker.js` 文件全部内容，粘贴进去。
+   - 点击右上角 **部署** 即可。
+
+### 3. 绑定自定义域名（必须）
+1. 回到刚刚创建的 Worker 详情页面。
+2. 点击上方的 **设置 (Settings)** -> 找到 **域和路由 (Domains & Routes)**。
+3. 点击 **添加 (Add)** -> 选择 **自定义域 (Custom Domain)**。
+4. 输入你的二级域名（例如：`docker.yourdomain.com`），点击添加，等待解析生效。
+
+### 4. （可选）配置 Docker Hub 账号变量
+如果经常大量拉取镜像，建议配置账号以突破 Docker 官方对匿名 IP 的频次限制：
+1. 在 Worker 页面点击 **设置 (Settings)** -> **变量和机密 (Variables and Secrets)** -> 点击 **添加**。
+2. 可添加以下变量：
+
+| 变量名 | 说明 |
+| :--- | :--- |
+| **`USERNAME`** | 选填：你的 Docker Hub 账号用户名。 |
+| **`PASSWORD`** | 选填：你的 Docker Hub 密码或 Access Token。 |
+
+> 💡 *小提示：安全防护（如仅限中国访问、拦截境外扫描器等）后续直接在 Cloudflare 域名的 **WAF (安全性 -> 规则)** 中配置更加灵活便捷。*
+
+---
+
+## 💻 使用方法
+
+假设你绑定的域名是：`docker.yourdomain.com`
+
+### 方法一：直接在命令行拉取（临时使用）
+在原本的镜像名称前面加上你的域名即可：
+
+```bash
+# 官方常用镜像（如 nginx、ubuntu 等，需加上 library/ 前缀）
+docker pull docker.yourdomain.com/library/nginx:latest
+
+# 第三方用户镜像
+docker pull docker.yourdomain.com/stilleshan/frpc:latest
 ```
 
-```shell
-docker pull docker.fxxk.dedyn.io/library/nginx:stable-alpine3.19-perl
-```
+---
 
-### 2.一键设置镜像加速
+### 方法二：全局配置加速（一键配置，推荐）
+让服务器后续使用常规 `docker pull` 命令时自动通过加速代理下载。
 
-修改文件 `/etc/docker/daemon.json`（如果不存在则创建）
+在 Linux / 群晖 / VPS 终端中运行以下命令（**注意将域名替换为你自己的**）：
 
-```shell
+```bash
 sudo mkdir -p /etc/docker
 sudo tee /etc/docker/daemon.json <<-'EOF'
 {
-  "registry-mirrors": ["https://docker.fxxk.dedyn.io"]  # 请替换为您自己的Worker自定义域名
+  "registry-mirrors": ["https://docker.yourdomain.com"]
 }
 EOF
 sudo systemctl daemon-reload
 sudo systemctl restart docker
 ```
 
-### 3. 配置常见仓库的镜像加速
-
-#### 3.1 配置
-
-`Containerd` 较简单，它支持任意 `registry` 的 `mirror`，只需要修改配置文件 `/etc/containerd/config.toml`，添加如下的配置：
-
-```yaml
-    [plugins."io.containerd.grpc.v1.cri".registry]
-      [plugins."io.containerd.grpc.v1.cri".registry.mirrors]
-        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-          endpoint = ["https://xxxx.xx.com"]
-        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.k8s.io"]
-          endpoint = ["https://xxxx.xx.com"]
-        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."k8s.gcr.io"]
-          endpoint = ["https://xxxx.xx.com"]
-        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."gcr.io"]
-          endpoint = ["https://xxxx.xx.com"]
-        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."ghcr.io"]
-          endpoint = ["https://xxxx.xx.com"]
-        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."quay.io"]
-          endpoint = ["https://xxxx.xx.com"]
+配置完成后，以后直接正常拉取即可享受加速：
+```bash
+docker pull nginx:latest
 ```
 
-`Podman` 同样支持任意 `registry` 的 `mirror`，修改配置文件 `/etc/containers/registries.conf`，添加配置：
+---
 
-```yaml
-unqualified-search-registries = ['docker.io', 'k8s.gcr.io', 'gcr.io', 'ghcr.io', 'quay.io']
-
-[[registry]]
-prefix = "docker.io"
-insecure = true
-location = "registry-1.docker.io"
-
-[[registry.mirror]]
-location = "xxxx.xx.com"
-
-[[registry]]
-prefix = "registry.k8s.io"
-insecure = true
-location = "registry.k8s.io"
-
-[[registry.mirror]]
-location = "xxxx.xx.com"
-
-[[registry]]
-prefix = "k8s.gcr.io"
-insecure = true
-location = "k8s.gcr.io"
-
-[[registry.mirror]]
-location = "xxxx.xx.com"
-
-[[registry]]
-prefix = "gcr.io"
-insecure = true
-location = "gcr.io"
-
-[[registry.mirror]]
-location = "xxxx.xx.com"
-
-[[registry]]
-prefix = "ghcr.io"
-insecure = true
-location = "ghcr.io"
-
-[[registry.mirror]]
-location = "xxxx.xx.com"
-
-[[registry]]
-prefix = "quay.io"
-insecure = true
-location = "quay.io"
-
-[[registry.mirror]]
-location = "xxxx.xx.com"
-
-```
-
-#### 3.3 使用
-
-对于以上配置，k8s 在使用的时候，就可以直接 `pull` 外部无法 pull 的镜像了。
-
-```shell
-# 手动可以直接pull配置了mirror的仓库
-crictl pull registry.k8s.io/kube-proxy:v1.28.4
-docker  pull nginx:1.21
-```
-
-## 🔧 变量说明
-
-| 变量名 | 示例 | 必填 | 备注 |
-|--|--|--|--|
-| USERNAME | `your_dockerhub_username` |❌| Docker Hub 用户名（建议与 PASSWORD 一同配置以提升匿名限制） |
-| PASSWORD | `dckr_pat_xxxx` |❌| Docker Hub 密码或个人访问令牌 (Personal Access Token) |
-| REGION_WHITELIST | `CN` 或 `CN,HK,MO` |❌| **防境外扫描神器（兼容所有NAS）**：限制仅中国 IP 访问，境外节点/扫描器一律返回 Nginx 页面，极空间/绿联/群晖等各类设备均可畅通拉取 |
-| IP_WHITELIST_REGEX | `^(1\.2\.3\.4|123\.123\.)` |❌| **高安全性**：限制仅允许指定家庭/服务器公网 IP 地址访问 |
-| PROXY_TOKEN | `my_secret_token_123` |❌| 访问令牌，设置后需在 URL 参数 `?token=xxx` 或请求头 `x-proxy-token` 携带 |
-| URL302 | `https://t.me/CMLiussss` |❌| 主页302跳转 |
-| URL | `https://www.baidu.com/` |❌| 主页伪装(设为`nginx`则伪装为nginx默认页面) |
-| UA | `netcraft` |❌| 屏蔽爬虫UA，支持多元素, 元素之间使用空格或换行作间隔 |
-
-# 🛠️ 第三方 DockerHub 镜像服务
-
-**注意:**
-
-- 以下内容仅做镜像服务的整理与搜集，未做任何安全性检测和验证。
-- 使用前请自行斟酌，并根据实际需求进行必要的安全审查。
-- 本列表中的任何服务都不做任何形式的安全承诺或保证。
-
-| DockerHub 镜像仓库 | 镜像加地址 |
-| ------------------ | ----------- |
-| [bestcfipas 镜像服务](https://t.me/bestcfipas/4018) | `https://docker.registry.cyou` |
-|  | `https://docker-cf.registry.cyou` |
-|  | `https://registry.lfree.org` |
-| [zero_free 镜像服务](https://t.me/zero_free/80) | `https://docker.jsdelivr.fyi` |
-|  | `https://docker.aeko.cn` |
-| [mingyu 镜像服务](https://github.com/ymyuuu/HubP) | `https://hubp.de` |
-| [Docker 镜像加速站](https://docker.1panel.live)  | `https://docker.1panel.live` |
-| [Hub Proxy](https://hub.rat.dev) | `https://hub.rat.dev` |
-| [DaoCloud 镜像站](https://github.com/DaoCloud/public-image-mirror) | `https://docker.m.daocloud.io` |
-
-# 🙏 鸣谢
-### 💖 赞助支持 - 提供云服务器
-- [![digitalvirt.com](https://digitalvirt.com/templates/BlueWhite/img/logo-dark.svg)](https://url.cmliussss.com/dv)
-
-### 🛠 开源代码引用
-- [muzihuaner](https://github.com/muzihuaner)
-- [V2ex网友](https://global.v2ex.com/t/1007922)
-- [ciiiii](https://github.com/ciiiii/cloudflare-docker-proxy)
-- [ChatGPT](https://chatgpt.com/)
-- [白嫖哥](https://t.me/bestcfipas/1900)
-- [zero_free频道](https://t.me/zero_free/80)
-- [dongyubin](https://github.com/cmliu/CF-Workers-docker.io/issues/8)
-- [kiko923](https://github.com/cmliu/CF-Workers-docker.io/issues/5)
+### 方法三：群晖 / 极空间 / 绿联等 NAS 用户配置
+1. 打开 NAS 自带的 **Docker / Container Manager** 界面。
+2. 找到 **镜像注册表 / 仓库设置 / Registry**。
+3. 新增或编辑 Docker Hub 注册表，将镜像 URL / 加速地址填写为：
+   ```text
+   https://docker.yourdomain.com
+   ```
+4. 保存后，在 NAS 中搜索或下载镜像即可自动加速。
