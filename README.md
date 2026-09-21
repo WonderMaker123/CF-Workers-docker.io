@@ -43,8 +43,7 @@
 |:---|:---|:---|
 | **`USERNAME`** | `你的DockerHub用户名` | 配置你的 Docker Hub 个人账号，解除 IP 共享的 100 次/6小时匿名限额。 |
 | **`PASSWORD`** | `dckr_pat_xxxx` | 你的 Docker Hub 密码或访问令牌 (PAT)。 |
-| **`REGION_WHITELIST`** | `CN` | **防境外扫描核心**：仅允许中国 IP 访问。国外所有 Netcraft、安全扫描器访问均只显示 Nginx 默认欢迎页，无法探测到任何 Docker 接口。 |
-| **`UA_WHITELIST_REGEX`** | `^(docker\|containerd\|podman\|nerdctl\|curl\|synology)` | **客户端白名单核心**：仅放行 Docker 引擎拉取请求，浏览器访问一律伪装为 Nginx 页面。 |
+| **`REGION_WHITELIST`** | `CN` | **防境外扫描核心（全兼容所有NAS）**：仅允许中国 IP 访问。国外所有 Netcraft、安全扫描器访问均只显示 Nginx 默认欢迎页，无法探测到任何 Docker 接口；同时极空间、绿联、群晖等各种 NAS 设备均无需担心 UA 拦截，直接畅通使用。 |
 | **`URL`** | `nginx` | 主页默认伪装为 Nginx 默认欢迎页。 |
 
 > 💡 **提示**：以上变量也可以不走环境变量，直接在 `_worker.js` 开头的变量中修改默认值。
@@ -174,8 +173,7 @@ docker  pull nginx:1.21
 |--|--|--|--|
 | USERNAME | `your_dockerhub_username` |❌| Docker Hub 用户名（建议与 PASSWORD 一同配置以提升匿名限制） |
 | PASSWORD | `dckr_pat_xxxx` |❌| Docker Hub 密码或个人访问令牌 (Personal Access Token) |
-| REGION_WHITELIST | `CN` 或 `CN,HK,MO` |❌| **防境外扫描神器**：限制仅中国 IP 访问，境外节点/扫描器一律返回 Nginx 页面 |
-| UA_WHITELIST_REGEX | `^(docker|containerd|podman|nerdctl|curl|synology)` |❌| **个人防扫必备**：仅放行常见容器引擎拉取，所有浏览器/爬虫访问均伪装为 Nginx |
+| REGION_WHITELIST | `CN` 或 `CN,HK,MO` |❌| **防境外扫描神器（兼容所有NAS）**：限制仅中国 IP 访问，境外节点/扫描器一律返回 Nginx 页面，极空间/绿联/群晖等各类设备均可畅通拉取 |
 | IP_WHITELIST_REGEX | `^(1\.2\.3\.4|123\.123\.)` |❌| **高安全性**：限制仅允许指定家庭/服务器公网 IP 地址访问 |
 | PROXY_TOKEN | `my_secret_token_123` |❌| 访问令牌，设置后需在 URL 参数 `?token=xxx` 或请求头 `x-proxy-token` 携带 |
 | URL302 | `https://t.me/CMLiussss` |❌| 主页302跳转 |
