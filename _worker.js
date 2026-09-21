@@ -11,14 +11,10 @@ let 屏蔽爬虫UA = ['netcraft'];
 let hub_username = '';
 let hub_password = '';
 
-// 安全防护配置（个人使用强烈推荐）：
-// 1. 默认首页伪装：未提供 URL 环境变量时，默认展示 Nginx 页面，坚决不展示 Docker 页面，防止被 Netcraft 爬虫探测为钓鱼。
-// 2. 地区/国家白名单 (防国外安全扫描神器): 例如：'CN' 或 'CN,HK,MO'（仅允许中国IP拉取，彻底屏蔽境外扫描器，极空间/绿联等NAS无需配置任何UA即可正常拉取）
-let region_whitelist = '';
-// 3. 访问密钥/Token (可选): 若设置，拉取或访问必须在 URL 带上 ?token=xxx 或在 Header 带有 X-Proxy-Token / Authorization
+// 安全防护配置（个人使用建议）：
+// 1. 默认首页伪装：未提供 URL 环境变量时，默认展示 Nginx 页面，不展示 Docker 页面，防止被安全扫描判定为钓鱼。
+// 2. 访问密钥/Token (可选): 若设置，拉取或访问必须在 URL 带上 ?token=xxx 或在 Header 带有 X-Proxy-Token / Authorization
 let proxy_token = '';
-// 4. IP 白名单 (可选): 例如：'^(1\.2\.3\.4|123\.123\.)'
-let ip_whitelist_regex = '';
 
 // 根据主机名选择对应的上游地址
 function routeByHosts(host) {
@@ -437,30 +433,7 @@ export default {
 		const username = env.USERNAME || env.DOCKER_USERNAME || hub_username;
 		const password = env.PASSWORD || env.DOCKER_PASSWORD || hub_password;
 
-		// 个人自用安全规避策略（借鉴 jonssonyan/cf-workers-proxy 白名单与伪装过滤机制）：
-		// 1. 国家/地区白名单校验（如果配置了 REGION_WHITELIST / COUNTRY_WHITELIST）
-		// Cloudflare 自动提供客户端所在国家/地区代码（如 CN、HK、US）
-		const allowedRegionsStr = env.REGION_WHITELIST || env.COUNTRY_WHITELIST || region_whitelist;
-		if (allowedRegionsStr) {
-			const clientCountry = (request.cf && request.cf.country) || request.headers.get('cf-ipcountry') || '';
-			const allowedRegions = allowedRegionsStr.split(',').map(r => r.trim().toUpperCase());
-			if (!allowedRegions.includes(clientCountry.toUpperCase())) {
-				return new Response(await nginx(), {
-					headers: { 'Content-Type': 'text/html; charset=UTF-8' },
-				});
-			}
-		}
-
-		// 2. IP 白名单校验（如果配置了 IP_WHITELIST_REGEX）
-		const ipWhitelistRegex = env.IP_WHITELIST_REGEX || ip_whitelist_regex;
-		const clientIp = request.headers.get('cf-connecting-ip') || '';
-		if (ipWhitelistRegex && !new RegExp(ipWhitelistRegex, 'i').test(clientIp)) {
-			return new Response(await nginx(), {
-				headers: { 'Content-Type': 'text/html; charset=UTF-8' },
-			});
-		}
-
-		// 3. 访问 Token 密钥防护（如果配置了 PROXY_TOKEN / TOKEN）
+		// 访问 Token 密钥防护（如果配置了 PROXY_TOKEN / TOKEN）
 		const requiredToken = env.PROXY_TOKEN || env.TOKEN || proxy_token;
 		if (requiredToken) {
 			const queryToken = url.searchParams.get('token');

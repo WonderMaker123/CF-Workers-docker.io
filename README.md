@@ -45,12 +45,10 @@
 | :--- | :--- | :--- |
 | **`USERNAME`** | 空 | Docker Hub 用户名（建议配置，可解除 Docker Hub 对匿名 IP 的拉取速率限制）。 |
 | **`PASSWORD`** | 空 | Docker Hub 密码或访问令牌 (Access Token)。 |
-| **`URL`** | `nginx` | 浏览器访问根目录时的行为。<br>• 默认展示 Nginx 静态伪装页（安全防扫描）<br>• 设置为其他网址（如 `https://www.baidu.com`）时反代访问该地址。 |
+| **`URL`** | `nginx` | 浏览器访问根目录时的行为。<br>• 默认展示 Nginx 静态伪装页（安全防扫描）<br>• 设置为其他网址（如 `https://www.baidu.com`）时反向代理该地址。 |
 | **`URL302`** | 空 | 浏览器访问根目录时 302 重定向的目标网址。 |
 | **`SHOW_DOCKER_PAGE`** | `false` | 是否开启 Web 搜索界面。设置为 `true` 时，在浏览器打开域名会显示 Docker 镜像搜索网页。 |
 | **`PROXY_TOKEN`** | 空 | 私人访问密钥/Token。配置后拉取镜像需带上 `?token=你的密钥` 才能访问。 |
-| **`REGION_WHITELIST`** | 空 | 国家/地区白名单（大写逗号隔开，如 `CN` 或 `CN,HK`）。<br>*注：也可以直接在 Cloudflare 控制台的 WAF 规则里设置，更直观。* |
-| **`IP_WHITELIST_REGEX`** | 空 | 客户端 IP 正则白名单过滤。 |
 | **`UA`** | `netcraft` | 需要拦截的爬虫 User-Agent 关键词。 |
 
 > 💡 **小白提示**：如果你只是自用拉取镜像，**不需要配置任何变量**即可直接使用！若遇到频繁限流，只需填入 `USERNAME` 和 `PASSWORD` 即可。安全规则建议直接在 Cloudflare 域名的 **安全性 -> WAF** 中点选配置。
